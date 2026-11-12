@@ -1,7 +1,25 @@
 {
 	"name": "gentle-vim-reader",
+	"version": "0.1.0",
+	"description": "Read-only vim-style reader for the Gentle Shell / Pi conversation: motions, search, visual yank, open links, live follow.",
 	"type": "module",
 	"private": false,
+	"license": "MIT",
+	"keywords": [
+		"pi-package",
+		"gentle-shell-package",
+		"gentle-shell-extension",
+		"vim"
+	],
+	"files": [
+		"src",
+		"README.md"
+	],
+	"pi": {
+		"extensions": [
+			"./src/extension.ts"
+		]
+	},
 	"scripts": {
 		"test": "node --test test/"
 	}
