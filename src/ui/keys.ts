@@ -17,6 +17,7 @@ const RAW: Record<string, string> = {
 	"\x08": "backspace",
 	"\x04": "ctrl+d",
 	"\x15": "ctrl+u",
+	"\x0f": "ctrl+o",
 	" ": "space",
 	"\x1b[A": "up",
 	"\x1b[B": "down",

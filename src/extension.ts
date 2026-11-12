@@ -1,12 +1,14 @@
-// Gentle Shell / Pi extension entry: alt+v opens a full-screen, read-only,
+// Gentle Shell / Pi extension entry: alt+v (rebindable through keymaps.json, or /vim-reader) opens a read-only,
 // vim-style reader over the whole conversation. Pi-dependent glue only; the
 // testable logic lives in src/ui/** and src/core/**.
 
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import { decodeKittyPrintable, parseKey, visibleWidth } from "@earendil-works/pi-tui";
+import { commandBinding, configHome, saveEdit, writeAtomic } from "./ui/keymap.ts";
 import { openEffect, osc52 } from "./ui/actions.ts";
 import { registerVimReader } from "./ui/controller.ts";
 import type { TuiLike } from "./ui/controller.ts";
@@ -47,6 +49,20 @@ function launch(command: string, args: string[]): Promise<void> {
 	});
 }
 
+const readIfExists = (path: string): string | undefined => (existsSync(path) ? readFileSync(path, "utf8") : undefined);
+
+function runEditor(tui: TuiLike, command: string, args: string[]): void {
+	tui.stop!();
+	try {
+		const result = spawnSync(command, args, { stdio: "inherit", shell: false });
+		if (result.error) throw result.error;
+		if (result.status !== 0) throw new Error(result.signal ? `terminated by ${result.signal}` : `exit status ${result.status}`);
+	} finally {
+		tui.start!();
+		tui.requestRender(true);
+	}
+}
+
 function themed(theme: unknown): { paint: PaintStyle; status: (text: string) => string } {
 	const t = (theme ?? {}) as ThemeLike;
 	const call = (fn: () => string, fallback: string): string => {
@@ -60,20 +76,31 @@ function themed(theme: unknown): { paint: PaintStyle; status: (text: string) => 
 	return {
 		paint: {
 			cursor: inverse,
-			selection: (s) => (t.bg ? call(() => t.bg!("selectedBg", s), inverse(s)) : inverse(s)),
+			selection: (s) => `\x1b[48;5;214;38;5;16m${s}\x1b[49;39m`, // high-contrast amber, independent of the theme
 			match: (s) => (t.bg ? call(() => t.bg!("searchMatchBg", s), `\x1b[4m${s}\x1b[24m`) : `\x1b[4m${s}\x1b[24m`),
 			filler: (s) => (t.fg ? call(() => t.fg!("dim", s), s) : s),
 		},
-		status: inverse,
+		status: (s) => s, // transparent: no background, terminal default colors
 	};
 }
 
 export default function vimReader(pi: ExtensionAPI): void {
 	registerVimReader(pi, {
 		copy,
-		open: (effect, ctx) =>
-			openEffect(effect, { cwd: ctx.cwd, platform: process.platform, exists: existsSync, spawn: launch }),
+		open: (effect, ctx, tui) =>
+			openEffect(effect, {
+				cwd: ctx.cwd,
+				platform: process.platform,
+				exists: existsSync,
+				spawn: launch,
+				home: homedir(),
+				editor: process.env.VISUAL || process.env.EDITOR,
+				// Same dance as Gentle Shell's own external editor: stop the TUI, run in the foreground, resume.
+				edit: tui.stop && tui.start ? (command, args) => runEditor(tui, command, args) : undefined,
+			}),
 		normalize: (data) => normalizeKey(data, { decodePrintable: decodeKittyPrintable, parseKey }),
+		keymapBinding: () => commandBinding(configHome(process.env, homedir()), readIfExists),
+		editKeymap: (edit) => saveEdit(configHome(process.env, homedir()), edit, { read: readIfExists, write: writeAtomic }),
 		style: themed,
 		measure: visibleWidth,
 	});

@@ -16,6 +16,8 @@ export interface StyledTranscript {
 	styled: string[];
 	/** Chat child index per line; blank-only children (spacers) join the previous message. */
 	meta: number[];
+	/** Index in `chat.children` of the block each line came from (for per-block actions such as ctrl+o). */
+	child: number[];
 }
 
 /** Width in terminal cells of one grapheme. */
@@ -125,8 +127,11 @@ export function buildStyledTranscript(
 	const lines: string[] = [];
 	const styled: string[] = [];
 	const meta: number[] = [];
+	const childOf: number[] = [];
 	let message = -1;
-	for (const child of [...chat.children]) {
+	const children = [...chat.children];
+	for (let ci = 0; ci < children.length; ci++) {
+		const child = children[ci];
 		if (!isComponent(child)) continue;
 		const rendered = child.render(width);
 		if (!Array.isArray(rendered)) continue;
@@ -149,9 +154,34 @@ export function buildStyledTranscript(
 			styled.push(out[i]!);
 			lines.push(plain[i]!);
 			meta.push(message);
+			childOf.push(ci);
 		}
 	}
-	return { lines, styled, meta };
+	return { lines, styled, meta, child: childOf };
+}
+
+interface ExpandableLike {
+	expanded?: unknown;
+	setExpanded(expanded: boolean): void;
+}
+
+/**
+ * Flip one chat block's own expanded state, the same call Pi makes when you click a
+ * tool result. Returns the new state, or null when the block cannot be toggled
+ * (no setExpanded, unknown current state, out of range): the caller falls back.
+ */
+export function toggleBlock(chat: unknown, index: number): "expanded" | "collapsed" | null {
+	try {
+		const children = (chat as { children?: unknown } | undefined)?.children;
+		if (!Array.isArray(children)) return null;
+		const block = children[index] as Partial<ExpandableLike> | undefined;
+		if (!block || typeof block.setExpanded !== "function" || typeof block.expanded !== "boolean") return null;
+		const next = !block.expanded;
+		block.setExpanded(next);
+		return next ? "expanded" : "collapsed";
+	} catch {
+		return null;
+	}
 }
 
 /**

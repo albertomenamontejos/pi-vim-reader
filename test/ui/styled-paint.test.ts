@@ -77,3 +77,14 @@ test("styled paint: padded chat lines highlight on the padding cells when the pl
 	assert.equal(paintOne("    ", { text: "", cursorCol: 0, matches: [] }), `[ ]${R}   `);
 	assert.equal(paintOne("    ", { text: "", selection: { start: 0, end: 1 }, matches: [] }), `{ }${R}   `);
 });
+
+test("S14 styled paint: a tab is 3 cells like pi-tui, so card borders stay in the same column", () => {
+	// pi-tui counts "\t" as 3 columns when it pads card rows: "│" + tab + "ab" + 3 spaces + "│" is 10 wide.
+	const piWidth = (g: string) => (g === "\t" ? 3 : 1);
+	const row = "│\tab   │";
+	const slice: Slice = { top: 0, total: 1, rows: [{ row: 0, text: "│\tab   │", matches: [] }] };
+	const out = paintRows(slice, { width: 10, height: 1, style, styled: [row], measure: piWidth })[0]!;
+	assert.equal(out, "│   ab   │");
+	const cursor = paintRows({ ...slice, rows: [{ row: 0, text: "│\tab   │", cursorCol: 1, matches: [] }] }, { width: 10, height: 1, style, styled: [row], measure: piWidth })[0]!;
+	assert.equal(cursor, "│[   ]" + R + "ab   │");
+});

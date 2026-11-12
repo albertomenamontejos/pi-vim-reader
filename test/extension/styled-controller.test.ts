@@ -128,3 +128,80 @@ test("S7 styled reader: yy and $ ignore the chat's trailing padding", () => {
 	assert.deepEqual(h.copied, [" hello"]);
 	assert.equal(h.render()[0], ` hell\x1b[7mo\x1b[27m\x1b[0m     `);
 });
+
+function toggleHarness(setTools: boolean, trailing = false) {
+	const mk = (expanded: boolean | undefined) => {
+		const b: any = { render: () => (b.expanded ? [" $ cmd", " out1", " out2"] : [" $ cmd (ctrl+o to expand)"]), setExpanded(v: boolean) { b.expanded = v; } };
+		if (expanded !== undefined) b.expanded = expanded;
+		return b;
+	};
+	const block = mk(false);
+	const plainBlock = comp([" answer"]);
+	const chat = container([plainBlock, comp([""]), block, ...(trailing ? [comp([" tail1", " tail2"])] : [])]);
+	const tools = { expanded: false, calls: 0 };
+	let shortcut: (ctx: any) => unknown = () => {};
+	let component: any;
+	const renders: number[] = [];
+	const tui = { terminal: { rows: 8, columns: 60 }, requestRender: () => renders.push(1), children: [container([container([]), container([]), chat])] };
+	const ctx: any = {
+		mode: "tui",
+		cwd: "/w",
+		sessionManager: { getBranch: () => [] },
+		ui: {
+			custom: (factory: any) => new Promise(() => { component = factory(tui, {}, {}, () => {}); }),
+			...(setTools ? { getToolsExpanded: () => tools.expanded, setToolsExpanded: (v: boolean) => { tools.expanded = v; tools.calls++; } } : {}),
+		},
+	};
+	registerVimReader({ registerShortcut: (_k: string, o: any) => { shortcut = o.handler; }, on: () => () => {} } as any, { copy: async () => {}, open: async () => "ok", now: () => 0, setTimer: () => () => {}, throttleMs: 50 });
+	void shortcut(ctx);
+	const status = () => (component.render(60) as string[]).at(-1)!.replace(/\x1b\[[0-9;]*m/g, "");
+	return { block, plainBlock, tools, renders, component: () => component, status, rows: () => component.render(60) as string[] };
+}
+
+test("S13 controller: ctrl+o on a tool block expands it in place, again collapses it, and repaints", () => {
+	const h = toggleHarness(true);
+	h.rows();
+	assert.equal(h.rows().length, 8);
+	h.component().handleInput("\x0f"); // cursor starts on the last line: the tool block
+	assert.equal(h.block.expanded, true);
+	assert.match(h.status(), /Expanded block/);
+	assert.ok(h.rows().some((r) => r.includes("out2")), "reader shows the expanded block");
+	assert.ok(h.renders.length > 0);
+	h.component().handleInput("\x0f");
+	assert.equal(h.block.expanded, false);
+	assert.match(h.status(), /Collapsed block/);
+	assert.equal(h.tools.calls, 0, "global toggle untouched");
+});
+
+test("S13 controller: ctrl+o on a line without an expandable block falls back to the global tool toggle", () => {
+	const h = toggleHarness(true);
+	h.rows();
+	h.component().handleInput("g");
+	h.component().handleInput("g"); // first line: plain answer, no setExpanded
+	h.component().handleInput("\x0f");
+	assert.equal(h.tools.calls, 1);
+	assert.equal(h.tools.expanded, true);
+	assert.match(h.status(), /All tool output expanded/);
+});
+
+test("S13 controller: nothing expandable and no global toggle reports it", () => {
+	const h = toggleHarness(false);
+	h.rows();
+	h.component().handleInput("g");
+	h.component().handleInput("g");
+	h.component().handleInput("\x0f");
+	assert.match(h.status(), /Nothing to expand/);
+});
+
+test("S13 controller: collapsing with the cursor inside the block leaves it on the block's first line", () => {
+	const h = toggleHarness(true, true);
+	h.block.setExpanded(true); // lines: answer, "", $ cmd, out1, out2, tail1, tail2
+	h.rows();
+	h.component().handleInput("g");
+	h.component().handleInput("g");
+	for (let i = 0; i < 4; i++) h.component().handleInput("j"); // row 5 (1-based): out2, inside the block
+	assert.match(h.status(), /\b5\/7\b/);
+	h.component().handleInput("\x0f"); // collapse from inside
+	assert.equal(h.block.expanded, false);
+	assert.match(h.status(), /\b3\/5\b/, "cursor on the block's header line, not on whatever now holds row 5");
+});

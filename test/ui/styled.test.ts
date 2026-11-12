@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildStyledTranscript, createStyledSource, findChatContainer, plainText } from "../../src/ui/styled.ts";
+import { buildStyledTranscript, createStyledSource, findChatContainer, plainText, toggleBlock } from "../../src/ui/styled.ts";
 
 const comp = (lines: string[] | ((w: number) => string[])) => ({
 	render: (w: number) => (typeof lines === "function" ? lines(w) : lines),
@@ -78,7 +78,7 @@ test("styled: createStyledSource falls back (null) when no container, when empty
 	const broken = fakeTui([{ render: () => { throw new Error("render failed"); } }]).tui;
 	assert.equal(createStyledSource(broken)(40), null);
 	const ok = createStyledSource(fakeTui([comp(["\x1b[2mhi\x1b[22m"])]).tui)(40);
-	assert.deepEqual(ok, { lines: ["hi"], styled: ["\x1b[2mhi\x1b[22m"], meta: [0] });
+	assert.deepEqual(ok, { lines: ["hi"], styled: ["\x1b[2mhi\x1b[22m"], meta: [0], child: [0] });
 });
 
 test("S4 styled: createStyledSource re-reads chat children on every call (live output)", () => {
@@ -90,4 +90,40 @@ test("S4 styled: createStyledSource re-reads chat children on every call (live o
 	// Pi's Container.clear() replaces the children array.
 	chat.children = [comp(["fresh"])];
 	assert.deepEqual(source(40)?.lines, ["fresh"]);
+});
+
+test("S13 styled: every line reports the chat child it came from", () => {
+	const comp = (lines: string[]) => ({ render: (_w: number) => lines });
+	const t = buildStyledTranscript({ children: [comp(["a1", "a2"]), comp([""]), comp(["b1"])], render: () => [] } as any, 20);
+	assert.deepEqual(t.child, [0, 0, 1, 2]);
+});
+
+test("S13 styled: toggleBlock flips one block's own expanded state, or reports why not", () => {
+	const block = (expanded: boolean) => {
+		const b: any = { expanded, calls: 0, render: () => [""], setExpanded(v: boolean) { b.expanded = v; b.calls++; } };
+		return b;
+	};
+	const a = block(false);
+	const b = block(true);
+	const chat: any = { children: [a, { render: () => [""] }, b], render: () => [] };
+	assert.equal(toggleBlock(chat, 0), "expanded");
+	assert.equal(a.expanded, true);
+	assert.equal(toggleBlock(chat, 0), "collapsed");
+	assert.equal(toggleBlock(chat, 2), "collapsed");
+	assert.equal(b.expanded, false);
+	assert.equal(toggleBlock(chat, 1), null, "no setExpanded");
+	assert.equal(toggleBlock(chat, 9), null, "out of range");
+	assert.equal(toggleBlock(undefined, 0), null);
+	const noState: any = { children: [{ render: () => [""], setExpanded() {} }], render: () => [] };
+	assert.equal(toggleBlock(noState, 0), null, "unknown current state is not guessed");
+});
+
+test("S13 styled: child index counts skipped children (non-component, empty render)", () => {
+	const chat: any = { children: [null, { render: () => [] }, { render: () => ["x"] }, "str", { render: () => ["y"] }], render: () => [] };
+	assert.deepEqual(buildStyledTranscript(chat, 10).child, [2, 4]);
+});
+
+test("S13 styled: toggleBlock rejects a block whose expanded is not a boolean", () => {
+	const chat: any = { children: [{ render: () => [""], expanded: undefined, setExpanded() { throw new Error("must not run"); } }], render: () => [] };
+	assert.equal(toggleBlock(chat, 0), null);
 });

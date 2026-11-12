@@ -50,3 +50,8 @@ test("keys: parseKey 'shift+<letter>' becomes the uppercase character", () => {
 	const helpers = { parseKey: (d: string) => (d === "\x1b[103;2u" ? "shift+g" : undefined) };
 	assert.deepEqual(normalizeKey("\x1b[103;2u", helpers), ["G"]);
 });
+
+test("S13 keys: ctrl+o maps from the raw byte and from pi-tui's parseKey", () => {
+	assert.deepEqual(normalizeKey("\x0f"), ["ctrl+o"]);
+	assert.deepEqual(normalizeKey("\x0f", { parseKey: (d) => (d === "\x0f" ? "ctrl+o" : undefined) }), ["ctrl+o"]);
+});

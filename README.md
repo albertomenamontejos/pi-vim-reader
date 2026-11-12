@@ -2,7 +2,7 @@
 
 A read-only, vim-style reader for the whole Gentle Shell (Pi) conversation.
 
-Press `alt+v` to open a full-screen view of the conversation with a cursor. Move, search, select and copy with vim keys, open links and files, then press `Esc` or `q` to return to the editor. The reader never edits anything.
+Press `alt+v` to open a vim-style cursor over the chat. The reader covers only the chat area: the header, the right rail, the prompt and the status bar stay visible and in place. It opens where the chat is scrolled (or on the last line, following, when the chat is at the bottom). Move, search, select and copy with vim keys, open links and files, then press `q` to return to the editor. The reader never edits anything.
 
 The reader looks like the chat: it shows the chat's own rendered lines (colors, boxes, Markdown, wrapping) and only paints the cursor, the selection and search matches on top.
 
@@ -17,11 +17,33 @@ The view is live: with the cursor on the last line it follows the agent's output
 | Search | `/` forward, `?` backward, `n` / `N` repeat (smartcase, wraps around) |
 | Select and copy | `v` charwise, `V` linewise, then `y`; `yy` copies the current line |
 | Code blocks | `yc` copies the fenced code block under the cursor, without the fences |
-| Links and files | `gx` opens the URL under the cursor, `gf` opens the file path (`path` or `path:line`) |
+| Links and files | `gx` opens the URL under the cursor, `gf` opens the file path (`path` or `path:line`) in `$VISUAL`/`$EDITOR` (for example vim or nvim) at that line, then returns to the reader |
+| Expand | `Ctrl+o` expands or collapses the tool-output block under the cursor (like clicking it); on a line without such a block it toggles all tool output, as Pi's own `Ctrl+o` does |
 | Follow | `G` jumps to the last line and follows live output |
-| Close | `Esc` or `q` |
+| Close | `q` (`Esc` only leaves visual mode or search; it never closes, so a double `Esc` cannot abort the running agent) |
 
-Copy uses the system clipboard (wl-copy, xclip or xsel), with an OSC 52 fallback. Open uses `xdg-open` on Linux, `open` on macOS and `start` on Windows.
+Copy uses the system clipboard (wl-copy, xclip or xsel), with an OSC 52 fallback. `gx` (and `gf` when no editor is set) uses `xdg-open` on Linux, `open` on macOS and `start` on Windows.
+
+## Changing the open key
+
+`alt+v` is only the default. The extension registers the slash command `/vim-reader`:
+
+| Command | Effect |
+|---|---|
+| `/vim-reader` | opens the reader |
+| `/vim-reader bind alt+r` | binds another key (a ctrl, alt or super combination, or f1-f12) |
+| `/vim-reader unbind` | disables the key binding (the command still works) |
+| `/vim-reader reset` | back to the default `alt+v` |
+
+After `bind`, `unbind` or `reset`, run `/reload` to apply it.
+
+How it works: Gentle Shell runs any `command:<name>` binding found in its `keymaps.json` (for a bundled Gentle Shell: `<prefix>/config/gentle-ai/keymaps.json`, e.g. `~/.gentle-shell/config/gentle-ai/keymaps.json`). `bind` writes `"command:vim-reader": "<key>"` there, keeping every other binding. The file is written atomically with mode 600. A malformed file is never overwritten, and keys that would break typing (plain letters, Enter, shift+letter) or that clash with another binding or a Gentle Shell default (for example `alt+k`) are refused. At load the extension reads the file: with a key assigned (or disabled), the built-in `alt+v` is not registered; with nothing assigned, or if the file cannot be read, `alt+v` stays.
+
+Known limits:
+- `/vim-reader` does **not** appear in `/gentle:customize` → Keymaps. Gentle Shell lists only the commands of its own built-in catalog (gentle-pi 4.7.0, `lib/command-palette-catalog.ts`), so a third-party command cannot add a row there.
+- The extension edits a file that belongs to Gentle Shell and mirrors its schema (`schema: 1`) and key rules. If a Gentle Shell update changes them, `bind` may stop working; deleting the `command:vim-reader` entry always restores `alt+v`.
+- It trusts `GENTLE_SHELL_PREFIX`: if that variable points at something that is not a real bundled Gentle Shell install, Gentle Shell reads another folder and `bind` would write a file it never reads.
+- Clash checks cover Gentle Shell's defaults at the time of writing and the keys already in `keymaps.json`, not every Pi binding. Pi's reserved keys (ctrl+c, ctrl+d, ctrl+o and similar) are refused; other Pi bindings are overridden with a warning from Pi when loading.
 
 ## Install
 
@@ -55,11 +77,12 @@ Tests run on Node 22.6+ with built-in TypeScript type stripping (Node 23.6+ with
 
 ## Known limits
 
+- The chat region is read from pi-tui's private layout (the chat viewport's rectangle and scroll position, Pi 1.5.2). If it cannot be read, the reader covers the whole terminal and starts on the last line.
 - Pi has no public API for the rendered chat. The reader finds Pi's chat container inside the TUI's mounted components (Pi 1.5.2 layout). If a Pi update changes that layout, or the chat cannot be rendered, the reader falls back to its own plain-text view built from the session: same keys, but plain wrapping and no chat styling.
 - Motions, search, `yy`, `yc`, `gx` and `gf` work on the visible text of the chat lines. Text wrapped by the chat (long URLs, paths) is split across lines, and `yc` copies code lines with the chat's indentation.
 - Inline images show as `[image]`.
 - With Pi's scrollbar setting `always`, the chat is one column narrower than the reader, so wrapping can differ by one column.
-- `gf` opens the file but does not jump to the line.
+- `gf` runs the editor in the foreground and suspends Gentle Shell until it exits, as Gentle Shell's own external editor does. Without `$VISUAL` or `$EDITOR` it falls back to `xdg-open`, which does not jump to the line.
 - On Windows/WSL, `alt+v` is Pi's built-in paste-image key.
 
 ## Gentle Hub

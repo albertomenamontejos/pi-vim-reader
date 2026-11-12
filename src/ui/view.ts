@@ -1,7 +1,7 @@
 // The reader component: owns core state, rebuilds the transcript, paints rows.
 // No Pi imports — it satisfies pi-tui's Component interface structurally.
 
-import { createReader, handleKey, setHeight, setLines, visibleSlice } from "../core/index.ts";
+import { createReader, handleKey, jumpTo, setHeight, setLines, visibleSlice } from "../core/index.ts";
 import type { Effect, ReaderState } from "../core/index.ts";
 import { buildTranscript } from "../transcript/transcript.ts";
 import { formatStatus, paintRows } from "./paint.ts";
@@ -14,10 +14,16 @@ export interface ReaderViewDeps {
 	rows(): number;
 	columns(): number;
 	getEntries(): unknown[];
+	/** Runs at the start of every render (the controller re-measures the chat region there). */
+	beforeRender?(): void;
+	/** Buffer row at the top of the chat's viewport when it is scrolled up; null/absent starts on the last line, following. */
+	startRow?(lineCount: number): number | null;
 	/** Styled chat lines (the chat's own rendering); null or a throw falls back to the plain transcript. */
 	getStyled?(width: number): StyledTranscript | null;
 	/** Grapheme width for styled rows. */
 	measure?: Measure;
+	/** ctrl+o: toggle the chat block that owns `child` (chat child index, undefined on the plain fallback); returns the status message. */
+	toggleExpand?(child: number | undefined): string;
 	requestRender(): void;
 	close(): void;
 	normalize(data: string): string[];
@@ -43,13 +49,19 @@ export class ReaderView {
 	private disposed = false;
 	/** Styled line per buffer row while the styled source is active; null on the plain fallback. */
 	private styled: readonly string[] | null = null;
+	/** Chat child index per buffer row while the styled source is active. */
+	private childOf: readonly number[] | null = null;
 	private readonly deps: ReaderViewDeps;
 
 	constructor(deps: ReaderViewDeps) {
 		this.deps = deps;
 		this.width = Math.max(1, deps.columns());
 		const t = this.build();
-		this.state = createReader(t.lines, { meta: t.meta, height: this.contentHeight(), follow: true });
+		const start = this.styled !== null ? (this.deps.startRow?.(t.lines.length) ?? null) : null;
+		this.state =
+			start === null
+				? createReader(t.lines, { meta: t.meta, height: this.contentHeight(), follow: true })
+				: createReader(t.lines, { meta: t.meta, height: this.contentHeight(), follow: false, start });
 	}
 
 	get readerState(): ReaderState {
@@ -67,6 +79,7 @@ export class ReaderView {
 				const t = this.deps.getStyled(this.width);
 				if (t && t.lines.length > 0) {
 					this.styled = t.styled;
+					this.childOf = t.child;
 					return t;
 				}
 			} catch {
@@ -74,6 +87,7 @@ export class ReaderView {
 			}
 		}
 		this.styled = null;
+		this.childOf = null;
 		return buildTranscript(this.deps.getEntries(), { width: this.width, streaming });
 	}
 
@@ -134,6 +148,18 @@ export class ReaderView {
 			case "message":
 				this.message = effect.text;
 				return;
+			case "toggle-expand": {
+				const child = this.childOf?.[effect.row];
+				const first = child === undefined ? -1 : (this.childOf?.indexOf(child) ?? -1);
+				const text = this.deps.toggleExpand ? this.deps.toggleExpand(child) : "Nothing to expand";
+				if (first >= 0) {
+					// The block's own lines above it do not move: re-read the chat and keep the cursor on its first line.
+					this.rebuild();
+					if (!this.state.following) this.state = jumpTo(this.state, first);
+				}
+				this.flash(text);
+				return;
+			}
 			case "copy": {
 				const text = effect.text;
 				this.deps.copy(text).then(
@@ -159,6 +185,7 @@ export class ReaderView {
 	}
 
 	render(width: number): string[] {
+		this.deps.beforeRender?.();
 		width = Math.max(1, Math.floor(width));
 		if (width !== this.width) {
 			this.width = width;

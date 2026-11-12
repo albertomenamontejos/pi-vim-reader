@@ -114,8 +114,11 @@ test("S3: registers alt+v and opens a full-screen focused component over the con
 	void shortcut.handler(h.ctx);
 	assert.ok(h.component, "custom() factory ran");
 	assert.equal(h.customOptions.overlay, true);
-	assert.equal(h.customOptions.overlayOptions.width, "100%");
-	assert.equal(h.customOptions.overlayOptions.maxHeight, "100%");
+	// No chat layout in this harness: the overlay falls back to the whole terminal (S10 covers the chat region).
+	assert.equal(h.customOptions.overlayOptions.anchor, "top-left");
+	assert.deepEqual(h.customOptions.overlayOptions.margin, { top: 0, right: 0, bottom: 0, left: 0 });
+	assert.equal(h.customOptions.overlayOptions.width, 40);
+	assert.equal(h.customOptions.overlayOptions.maxHeight, 6);
 	assert.equal(h.component.capturesViewportInput, true);
 	const out: string[] = h.component.render(40);
 	assert.equal(out.length, 6, "exactly terminal rows");
@@ -222,7 +225,7 @@ test("S6: search shows the query and a not-found message", () => {
 	assert.doesNotMatch(plain(h.status(80)), /Pattern not found/, "message clears on the next key");
 });
 
-for (const key of ["q", "\x1b"]) {
+for (const key of ["q"]) {
 	test(`S3: ${JSON.stringify(key)} closes, resolves custom(), unsubscribes listeners and forces a repaint`, async () => {
 		const h = harness();
 		assert.equal(h.handlerCount(), 0, "no listeners before opening");
@@ -238,6 +241,15 @@ for (const key of ["q", "\x1b"]) {
 		h.emit("message_update", { message: assistant("late", 9) });
 	});
 }
+
+test("S3: Esc never closes the reader (a double Esc must not reach Pi and abort the agent)", () => {
+	const h = harness();
+	void h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	h.press("\x1b", "\x1b");
+	assert.equal(h.resolved, "pending");
+	assert.equal(h.handlerCount(), 4, "still open and subscribed");
+});
 
 test("S3: a second alt+v while open does not open another reader", () => {
 	const h = harness();

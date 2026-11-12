@@ -10,6 +10,8 @@ export type Effect =
 	| { type: "open-url"; url: string }
 	| { type: "open-file"; path: string; line?: number }
 	| { type: "close" }
+	/** Expand or collapse the tool-output block that owns this buffer row (ctrl+o). */
+	| { type: "toggle-expand"; row: number }
 	| { type: "message"; text: string };
 
 export interface ReaderState {
@@ -42,6 +44,8 @@ export interface CreateOptions {
 	height?: number;
 	/** Start on the last line following live output (default true). */
 	follow?: boolean;
+	/** With `follow: false`, start with this row at the top of the viewport and the cursor on it. */
+	start?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,7 +69,11 @@ export function createReader(lines: readonly string[], opts: CreateOptions = {})
 		searchReturn: "normal",
 		following: false,
 	};
-	if (!follow) return base;
+	if (!follow) {
+		if (opts.start === undefined) return base;
+		const row = clamp(Math.floor(opts.start), 0, lastRow(base));
+		return scroll({ ...base, cursor: { row, col: 0 }, top: row });
+	}
 	return scroll({ ...base, cursor: { row: lastRow(base), col: 0 }, following: true });
 }
 
@@ -76,6 +84,11 @@ export function setLines(state: ReaderState, lines: readonly string[], meta?: re
 	const row = clamp(state.cursor.row, 0, lastRow(next));
 	const anchor = state.anchor ? clampPos(next, state.anchor) : null;
 	return clampTop({ ...next, cursor: { row, col: clampCol(next, row, state.cursor.col) }, anchor });
+}
+
+/** Move the cursor to the start of `row` (clamped), scrolling the viewport as needed. */
+export function jumpTo(state: ReaderState, row: number): ReaderState {
+	return moveTo(state, { row: clamp(Math.floor(row), 0, lastRow(state)), col: 0 });
 }
 
 export function setHeight(state: ReaderState, height: number): ReaderState {
@@ -134,7 +147,8 @@ export function handleKey(state: ReaderState, key: string): HandleResult {
 	switch (key) {
 		case "escape":
 			if (visual) return { state: { ...state, mode: "normal", anchor: null } };
-			return { state, effect: { type: "close" } };
+			// Esc never closes: a double Esc would otherwise reach Pi and abort the running agent. `q` closes.
+			return { state };
 		case "q":
 			return visual ? { state } : { state, effect: { type: "close" } };
 		case "g":
@@ -161,6 +175,8 @@ export function handleKey(state: ReaderState, key: string): HandleResult {
 		case "ctrl+d":
 		case "ctrl+u":
 			return { state: scrollHalf(state, key === "ctrl+d" ? 1 : -1) };
+		case "ctrl+o":
+			return visual ? { state } : { state, effect: { type: "toggle-expand", row: state.cursor.row } };
 	}
 	const pos = motion(state, key);
 	return pos ? { state: moveTo(state, pos) } : { state };

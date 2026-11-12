@@ -62,10 +62,29 @@ test("S8: gf on non-path text or a URL reports a message", () => {
 	]);
 });
 
-test("S8/S3: q and escape in normal mode yield close; escape with pending key only clears it", () => {
+test("S8/S3: q closes; escape in normal mode does nothing (a double Esc must not abort the agent); escape with pending key only clears it", () => {
 	assert.deepEqual(press(make(["a"]), "q").effects, [{ type: "close" }]);
-	assert.deepEqual(press(make(["a"]), "escape").effects, [{ type: "close" }]);
+	const esc = press(make(["a"]), "escape", "escape");
+	assert.deepEqual(esc.effects, []);
+	assert.equal(esc.state.mode, "normal");
 	const pending = press(make(["a"]), "g", "escape");
 	assert.deepEqual(pending.effects, []);
 	assert.equal(pending.state.pending, "");
+});
+
+test("S3/S8: escape clears every pending prefix without effects and never closes", () => {
+	for (const prefix of ["g", "]", "[", "y"]) {
+		const r = press(make(["a", "b"]), prefix, "escape");
+		assert.deepEqual(r.effects, []);
+		assert.equal(r.state.pending, "");
+		assert.equal(r.state.mode, "normal");
+	}
+});
+
+test("S13 core: ctrl+o in normal mode asks to toggle the block under the cursor; elsewhere it does nothing", () => {
+	const normal = press(make(["a", "b", "c"], { row: 1 }), "ctrl+o");
+	assert.deepEqual(normal.effects, [{ type: "toggle-expand", row: 1 }]);
+	assert.equal(normal.state.cursor.row, 1);
+	assert.deepEqual(press(make(["a", "b"]), "v", "ctrl+o").effects, []);
+	assert.deepEqual(press(make(["a", "b"]), "g", "ctrl+o").effects, []);
 });

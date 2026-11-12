@@ -142,8 +142,10 @@ function paintStyledRow(line: string, row: SliceRow, width: number, style: Paint
 			continue;
 		}
 		const cp = t.text.codePointAt(0) ?? 0;
-		const text = t.text.length === 1 || cp < 0x20 ? displayChar(t.text) : t.text;
-		items.push({ cell: { text, width: Math.max(0, measure(text)), kind: kindAt(row, t.offset, t.text.length) } });
+		// pi-tui lays cards out counting a tab as 3 columns: draw it as 3 spaces so right borders stay aligned.
+		const text = t.text === "\t" ? "   " : t.text.length === 1 || cp < 0x20 ? displayChar(t.text) : t.text;
+		const cellWidth = t.text === "\t" ? 3 : Math.max(0, measure(text));
+		items.push({ cell: { text, width: cellWidth, kind: kindAt(row, t.offset, t.text.length) } });
 		plainLength = t.offset + t.text.length;
 	}
 	if (plainLength === 0 && row.cursorCol === undefined && row.selection) {

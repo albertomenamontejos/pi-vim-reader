@@ -1,2 +1,12 @@
-.atl/
+# dependencies
 node_modules/
+
+# agent / workflow tracking (local only)
+.atl/
+odd/
+
+# logs and OS/editor noise
+*.log
+.DS_Store
+.vscode/
+.idea/
