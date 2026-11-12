@@ -8,11 +8,16 @@ import { formatStatus, paintRows } from "./paint.ts";
 import type { PaintStyle } from "./paint.ts";
 import type { OpenEffect } from "./actions.ts";
 import { copyMessage } from "./actions.ts";
+import type { Measure, StyledTranscript } from "./styled.ts";
 
 export interface ReaderViewDeps {
 	rows(): number;
 	columns(): number;
 	getEntries(): unknown[];
+	/** Styled chat lines (the chat's own rendering); null or a throw falls back to the plain transcript. */
+	getStyled?(width: number): StyledTranscript | null;
+	/** Grapheme width for styled rows. */
+	measure?: Measure;
 	requestRender(): void;
 	close(): void;
 	normalize(data: string): string[];
@@ -36,6 +41,8 @@ export class ReaderView {
 	private lastStreamBuild = Number.NEGATIVE_INFINITY;
 	private cancelTimer: (() => void) | null = null;
 	private disposed = false;
+	/** Styled line per buffer row while the styled source is active; null on the plain fallback. */
+	private styled: readonly string[] | null = null;
 	private readonly deps: ReaderViewDeps;
 
 	constructor(deps: ReaderViewDeps) {
@@ -53,12 +60,27 @@ export class ReaderView {
 		return Math.max(1, this.deps.rows() - 1);
 	}
 
-	private build(streaming?: unknown) {
+	private build(streaming?: unknown): { lines: string[]; meta: number[] } {
+		if (this.deps.getStyled) {
+			try {
+				// The chat already shows the streaming message, so `streaming` is not needed here.
+				const t = this.deps.getStyled(this.width);
+				if (t && t.lines.length > 0) {
+					this.styled = t.styled;
+					return t;
+				}
+			} catch {
+				/* fall back to the plain transcript */
+			}
+		}
+		this.styled = null;
 		return buildTranscript(this.deps.getEntries(), { width: this.width, streaming });
 	}
 
 	private rebuild(streaming: unknown = this.streaming): void {
 		const t = this.build(streaming);
+		// Unchanged content keeps the cursor exactly where it is (setLines re-pins followers to col 0).
+		if (sameLines(this.state.lines, t.lines) && sameLines(this.state.lineMeta, t.meta)) return;
 		this.state = setLines(this.state, t.lines, t.meta);
 	}
 
@@ -141,11 +163,20 @@ export class ReaderView {
 		if (width !== this.width) {
 			this.width = width;
 			this.rebuild();
+		} else if (this.styled !== null) {
+			// Styled source: re-read the chat on every frame so tool output and streaming show live.
+			this.rebuild();
 		}
 		const height = this.contentHeight();
 		if (height !== this.state.height) this.state = setHeight(this.state, height);
 		const s = this.state;
-		const rows = paintRows(visibleSlice(s), { width, height, style: this.deps.style });
+		const rows = paintRows(visibleSlice(s), {
+			width,
+			height,
+			style: this.deps.style,
+			styled: this.styled ?? undefined,
+			measure: this.deps.measure,
+		});
 		const status = formatStatus(
 			{
 				mode: s.mode,
@@ -168,4 +199,10 @@ export class ReaderView {
 		this.disposed = true;
 		this.cancelPending();
 	}
+}
+
+function sameLines<T>(a: readonly T[], b: readonly T[]): boolean {
+	if (a.length !== b.length) return false;
+	for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+	return true;
 }

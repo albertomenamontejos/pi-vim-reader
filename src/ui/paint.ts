@@ -2,6 +2,8 @@
 // Styling is injected (theme-aware in the extension); defaults use raw ANSI.
 
 import type { Mode, Range, Slice, SliceRow } from "../core/index.ts";
+import { tokenize } from "./styled.ts";
+import type { Measure } from "./styled.ts";
 
 export interface PaintStyle {
 	cursor(text: string): string;
@@ -112,10 +114,99 @@ function paintRow(row: SliceRow, width: number, style: PaintStyle): string {
 	return out;
 }
 
+// ---------------------------------------------------------------------------
+// Styled rows: the chat's own ANSI line with cursor/selection/matches on top.
+
+const RESET = "\x1b[0m";
+const SGR_RE = /^\x1b\[([0-9;:]*)m$/;
+
+function kindAt(row: SliceRow, offset: number, length: number): Kind {
+	if (row.cursorCol !== undefined && row.cursorCol >= offset && row.cursorCol < offset + length) return "cursor";
+	if (row.selection && inRange(offset, row.selection)) return "selection";
+	if (row.matches.some((m) => inRange(offset, m))) return "match";
+	return "plain";
+}
+
+/** Default grapheme width: first code point via charWidth. The extension injects pi-tui's visibleWidth. */
+const defaultMeasure: Measure = (g) => charWidth(g.codePointAt(0) ?? 0);
+
+type StyledItem = { esc: string } | { cell: Cell };
+
+function paintStyledRow(line: string, row: SliceRow, width: number, style: PaintStyle, measure: Measure): string {
+	const items: StyledItem[] = [];
+	let plainLength = 0;
+	for (const t of tokenize(line)) {
+		if (t.kind === "esc") {
+			// APC (e.g. pi-tui's CURSOR_MARKER) is positional, not style: drop it.
+			if (!t.text.startsWith("\x1b_")) items.push({ esc: t.text });
+			continue;
+		}
+		const cp = t.text.codePointAt(0) ?? 0;
+		const text = t.text.length === 1 || cp < 0x20 ? displayChar(t.text) : t.text;
+		items.push({ cell: { text, width: Math.max(0, measure(text)), kind: kindAt(row, t.offset, t.text.length) } });
+		plainLength = t.offset + t.text.length;
+	}
+	if (plainLength === 0 && row.cursorCol === undefined && row.selection) {
+		items.push({ cell: { text: " ", width: 1, kind: "selection" } });
+	} else if (row.cursorCol !== undefined && row.cursorCol >= plainLength) {
+		items.push({ cell: { text: " ", width: 1, kind: "cursor" } });
+	}
+
+	// Horizontal scroll only when the cursor would fall off the right edge (same rule as plain rows).
+	const cells = items.filter((it): it is { cell: Cell } => "cell" in it).map((it) => it.cell);
+	let skip = 0;
+	const cursorIndex = cells.findIndex((c) => c.kind === "cursor");
+	if (cursorIndex >= 0) {
+		let used = 0;
+		for (let i = 0; i <= cursorIndex; i++) used += cells[i]!.width;
+		while (used > width && skip < cursorIndex) used -= cells[skip++]!.width;
+	}
+
+	let out = "";
+	let sgr = ""; // SGR codes active since the last reset, replayed after each highlight
+	let used = 0;
+	let index = 0;
+	let clipped = false;
+	let runKind: Kind = "plain";
+	let run = "";
+	const flush = () => {
+		if (run === "") return;
+		out += runKind === "plain" ? run : style[runKind](run) + RESET + sgr;
+		run = "";
+	};
+	for (const it of items) {
+		if ("esc" in it) {
+			flush();
+			out += it.esc;
+			const m = SGR_RE.exec(it.esc);
+			if (m) sgr = m[1] === "" || m[1] === "0" ? "" : /^0[;:]/.test(m[1]!) ? it.esc : sgr + it.esc;
+			continue;
+		}
+		const cell = it.cell;
+		if (index++ < skip || clipped) continue;
+		if (used + cell.width > width) {
+			clipped = true;
+			continue;
+		}
+		if (cell.kind !== runKind) {
+			flush();
+			runKind = cell.kind;
+		}
+		run += cell.text;
+		used += cell.width;
+	}
+	flush();
+	return out;
+}
+
 export interface PaintOptions {
 	width: number;
 	height: number;
 	style?: PaintStyle;
+	/** Styled (ANSI) line per buffer row; rows without one use the plain painter. */
+	styled?: readonly (string | undefined)[];
+	/** Grapheme width for styled rows (pi-tui visibleWidth in the extension). */
+	measure?: Measure;
 }
 
 /** Paint exactly `height` rows of at most `width` columns. */
@@ -126,7 +217,10 @@ export function paintRows(slice: Slice, opts: PaintOptions): string[] {
 	const out: string[] = [];
 	for (let i = 0; i < height; i++) {
 		const row = slice.rows[i];
-		out.push(row ? paintRow(row, width, style) : style.filler("~"));
+		const styled = row ? opts.styled?.[row.row] : undefined;
+		if (!row) out.push(style.filler("~"));
+		else if (styled !== undefined) out.push(paintStyledRow(styled, row, width, style, opts.measure ?? defaultMeasure));
+		else out.push(paintRow(row, width, style));
 	}
 	return out;
 }

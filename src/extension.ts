@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import * as piCodingAgent from "@earendil-works/pi-coding-agent";
-import { decodeKittyPrintable, parseKey } from "@earendil-works/pi-tui";
+import { decodeKittyPrintable, parseKey, visibleWidth } from "@earendil-works/pi-tui";
 import { openEffect, osc52 } from "./ui/actions.ts";
 import { registerVimReader } from "./ui/controller.ts";
 import type { TuiLike } from "./ui/controller.ts";
@@ -75,5 +75,6 @@ export default function vimReader(pi: ExtensionAPI): void {
 			openEffect(effect, { cwd: ctx.cwd, platform: process.platform, exists: existsSync, spawn: launch }),
 		normalize: (data) => normalizeKey(data, { decodePrintable: decodeKittyPrintable, parseKey }),
 		style: themed,
+		measure: visibleWidth,
 	});
 }

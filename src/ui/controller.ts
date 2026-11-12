@@ -5,11 +5,15 @@
 import type { OpenEffect } from "./actions.ts";
 import { normalizeKey } from "./keys.ts";
 import type { PaintStyle } from "./paint.ts";
+import { createStyledSource } from "./styled.ts";
+import type { Measure } from "./styled.ts";
 import { ReaderView } from "./view.ts";
 
 export interface TuiLike {
 	terminal: { rows: number; columns: number; write?(data: string): void };
 	requestRender(force?: boolean): void;
+	/** Pi's mounted components; read defensively to find the chat (see styled.ts). */
+	children?: unknown[];
 }
 
 export interface ReaderContext {
@@ -37,6 +41,10 @@ export interface ReaderServices {
 	now?(): number;
 	setTimer?(fn: () => void, ms: number): () => void;
 	throttleMs?: number;
+	/** Grapheme width for styled rows (pi-tui visibleWidth). */
+	measure?: Measure;
+	/** Set false to always use the plain transcript instead of the chat's own styled lines. */
+	styled?: boolean;
 }
 
 export const SHORTCUT = "alt+v";
@@ -91,6 +99,8 @@ export function registerVimReader(pi: PiLike, services: ReaderServices): void {
 							rows: () => tui.terminal.rows,
 							columns: () => tui.terminal.columns,
 							getEntries: () => ctx.sessionManager.getBranch(),
+							getStyled: services.styled === false ? undefined : createStyledSource(tui),
+							measure: services.measure,
 							requestRender: () => tui.requestRender(),
 							close,
 							normalize: services.normalize ?? ((d) => normalizeKey(d)),
