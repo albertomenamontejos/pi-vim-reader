@@ -4,6 +4,8 @@ A read-only, vim-style reader for the whole Gentle Shell (Pi) conversation.
 
 Press `alt+v` to open a full-screen view of the conversation with a cursor. Move, search, select and copy with vim keys, open links and files, then press `Esc` or `q` to return to the editor. The reader never edits anything.
 
+The reader looks like the chat: it shows the chat's own rendered lines (colors, boxes, Markdown, wrapping) and only paints the cursor, the selection and search matches on top.
+
 The view is live: with the cursor on the last line it follows the agent's output as it streams (`FOLLOW` in the status line). Move up and the text stays where it is; press `G` to follow again.
 
 ## Keys
@@ -44,7 +46,8 @@ npm test   # node --test test/
 ```
 
 - `src/core/` — pure reader state machine: cursor, motions, search, selection, follow.
-- `src/transcript/` — turns Pi session entries into plain-text lines.
+- `src/transcript/` — turns Pi session entries into plain-text lines (fallback view).
+- `src/ui/styled.ts` — reads the chat's own styled lines and strips them to plain text for the core.
 - `src/ui/` — key normalization, painting, actions, the overlay component and its controller.
 - `src/extension.ts` — thin Pi entry point.
 
@@ -52,7 +55,10 @@ Tests run on Node 22.6+ with built-in TypeScript type stripping (Node 23.6+ with
 
 ## Known limits
 
-- The reader is its own view, so wrapping and Markdown styling differ from the chat.
+- Pi has no public API for the rendered chat. The reader finds Pi's chat container inside the TUI's mounted components (Pi 1.5.2 layout). If a Pi update changes that layout, or the chat cannot be rendered, the reader falls back to its own plain-text view built from the session: same keys, but plain wrapping and no chat styling.
+- Motions, search, `yy`, `yc`, `gx` and `gf` work on the visible text of the chat lines. Text wrapped by the chat (long URLs, paths) is split across lines, and `yc` copies code lines with the chat's indentation.
+- Inline images show as `[image]`.
+- With Pi's scrollbar setting `always`, the chat is one column narrower than the reader, so wrapping can differ by one column.
 - `gf` opens the file but does not jump to the line.
 - On Windows/WSL, `alt+v` is Pi's built-in paste-image key.
 
