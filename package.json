@@ -1,0 +1,8 @@
+{
+	"name": "gentle-vim-reader",
+	"type": "module",
+	"private": false,
+	"scripts": {
+		"test": "node --test test/"
+	}
+}
