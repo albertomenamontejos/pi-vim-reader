@@ -101,7 +101,7 @@ Tests run on Node 22.6+ with built-in TypeScript type stripping (Node 23.6+ with
 
 ## Gentle Hub
 
-This repository is listed on [Gentle Hub](https://gentlemanprogramming.com/gentle-hub/) through the GitHub topics `gentle-shell-package` and `gentle-shell-extension`.
+This repository carries the GitHub topics `gentle-shell-package` and `gentle-shell-extension`, which is how [Gentle Hub](https://gentlemanprogramming.com/gentle-hub/) discovers community packages.
 
 ## License
 

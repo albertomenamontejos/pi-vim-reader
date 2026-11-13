@@ -103,16 +103,16 @@ test("S11 actions: a missing file never starts the editor; an editor failure is 
 });
 
 test("S12 actions: gf expands ~ and ~/ against the home directory", async () => {
-	const f = editorFakes("nvim", ["/home/tito/Work/a.ts", "/home/tito"]);
-	const deps = { ...f.deps, home: "/home/tito" };
-	assert.equal(await openEffect({ type: "open-file", path: "~/Work/a.ts", line: 4 }, deps), "Edited /home/tito/Work/a.ts:4 in nvim");
-	assert.deepEqual(f.edited, [{ command: "nvim", args: ["+4", "/home/tito/Work/a.ts"] }]);
-	assert.equal(await openEffect({ type: "open-file", path: "~" }, deps), "Edited /home/tito in nvim");
+	const f = editorFakes("nvim", ["/home/user/Work/a.ts", "/home/user"]);
+	const deps = { ...f.deps, home: "/home/user" };
+	assert.equal(await openEffect({ type: "open-file", path: "~/Work/a.ts", line: 4 }, deps), "Edited /home/user/Work/a.ts:4 in nvim");
+	assert.deepEqual(f.edited, [{ command: "nvim", args: ["+4", "/home/user/Work/a.ts"] }]);
+	assert.equal(await openEffect({ type: "open-file", path: "~" }, deps), "Edited /home/user in nvim");
 });
 
 test("S12 actions: ~ without a known home, and ~user, are not expanded (reported as not found)", async () => {
 	const f = editorFakes("nvim", ["/work/~/a.ts"]);
 	assert.equal(await openEffect({ type: "open-file", path: "~/a.ts" }, f.deps), "File not found: ~/a.ts");
-	const withHome = { ...f.deps, home: "/home/tito" };
+	const withHome = { ...f.deps, home: "/home/user" };
 	assert.equal(await openEffect({ type: "open-file", path: "~bob/a.ts" }, withHome), "File not found: ~bob/a.ts");
 });
