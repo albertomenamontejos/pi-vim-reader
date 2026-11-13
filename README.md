@@ -13,6 +13,7 @@ The view is live: with the cursor on the last line it follows the agent's output
 | Group | Keys |
 |---|---|
 | Move | `h j k l`, `w b e`, `0 $`, `gg G`, `Ctrl+d` / `Ctrl+u` |
+| Mouse | The wheel scrolls the reader; the cursor stays put while it is visible. Scrolling down to the end follows live output again |
 | Messages | `]]` next message, `[[` previous message; `Alt+j` / `Alt+k` jump to the next / previous message you sent (assistant and tool messages are skipped); `Alt+j` on your last message goes to the end of the page |
 | Search | `/` forward, `?` backward, `n` / `N` repeat (smartcase, wraps around) |
 | Select and copy | `v` charwise, `V` linewise, then `y`; `yy` copies the current line |

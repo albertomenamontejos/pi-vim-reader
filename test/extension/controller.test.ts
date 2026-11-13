@@ -296,3 +296,28 @@ test("S19: q never fails when the chat has no scrollToBottom", async () => {
 	await pending;
 	assert.ok(h.renders.includes(true));
 });
+
+const wheel = (wheelDelta: number) => ({ type: "wheel", button: "none", x: 1, y: 1, screenX: 1, screenY: 1, width: 40, height: 5, shift: false, alt: false, ctrl: false, wheelDelta });
+
+test("S20: the mouse wheel scrolls the reader, handled so the chat underneath does not move", () => {
+	const h = harness();
+	void h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	assert.deepEqual(h.pos(), { row: 7, total: 7 });
+	const up = h.component.handleMouse(wheel(-3));
+	assert.equal(up?.handled, true);
+	assert.ok(h.pos().row < 7, "moved off the last line");
+	assert.doesNotMatch(plain(h.status()), /FOLLOW/);
+	h.component.handleMouse(wheel(10));
+	assert.deepEqual(h.pos(), { row: 7, total: 7 });
+	assert.match(plain(h.status()), /FOLLOW/);
+});
+
+test("S20: non-wheel mouse events are ignored", () => {
+	const h = harness();
+	void h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	const before = h.pos();
+	h.component.handleMouse({ ...wheel(0), type: "click", button: "left", wheelDelta: undefined });
+	assert.deepEqual(h.pos(), before);
+});

@@ -363,6 +363,22 @@ function scrollHalf(state: ReaderState, dir: 1 | -1): ReaderState {
 	return moveTo({ ...state, top }, { row, col: clampCol(state, row, want), want });
 }
 
+/**
+ * Mouse wheel: move the viewport by `delta` lines (negative scrolls up). The cursor stays put while it is
+ * visible and is pulled to the nearest visible row otherwise. Reaching the end of the buffer while scrolling
+ * down puts the cursor on the last line, which follows live output again.
+ */
+export function scrollBy(state: ReaderState, delta: number): ReaderState {
+	if (!Number.isFinite(delta) || delta === 0) return state;
+	const top = clamp(state.top + Math.trunc(delta), 0, maxTop(state));
+	const bottom = Math.min(top + state.height - 1, lastRow(state));
+	const atEnd = delta > 0 && top === maxTop(state);
+	const row = atEnd ? lastRow(state) : clamp(state.cursor.row, top, bottom);
+	if (row === state.cursor.row) return { ...state, top, following: row === lastRow(state) };
+	const want = state.wantCol ?? state.cursor.col;
+	return { ...state, top, cursor: { row, col: clampCol(state, row, want) }, wantCol: want, following: row === lastRow(state) };
+}
+
 /** Apply a cursor move: update wantCol, viewport and follow state. */
 function moveTo(state: ReaderState, pos: Pos & { want?: number | null }): ReaderState {
 	const next: ReaderState = {

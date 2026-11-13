@@ -1,7 +1,7 @@
 // The reader component: owns core state, rebuilds the transcript, paints rows.
 // No Pi imports — it satisfies pi-tui's Component interface structurally.
 
-import { createReader, handleKey, jumpTo, setHeight, setLines, visibleSlice } from "../core/index.ts";
+import { createReader, handleKey, jumpTo, scrollBy, setHeight, setLines, visibleSlice } from "../core/index.ts";
 import type { Effect, ReaderState } from "../core/index.ts";
 import { buildTranscript } from "../transcript/transcript.ts";
 import { formatStatus, paintRows } from "./paint.ts";
@@ -126,6 +126,14 @@ export class ReaderView {
 	private cancelPending(): void {
 		this.cancelTimer?.();
 		this.cancelTimer = null;
+	}
+
+	/** Mouse wheel scrolls the reader. Handled, so Pi does not also scroll the chat underneath. */
+	handleMouse(event: { type: string; wheelDelta?: number }): { handled: true } | undefined {
+		if (this.disposed || event.type !== "wheel") return undefined;
+		this.state = scrollBy(this.state, event.wheelDelta ?? 0);
+		this.deps.requestRender();
+		return { handled: true };
 	}
 
 	handleInput(data: string): void {
