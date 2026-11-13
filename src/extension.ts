@@ -76,7 +76,8 @@ function themed(theme: unknown): { paint: PaintStyle; status: (text: string) => 
 	return {
 		paint: {
 			cursor: inverse,
-			selection: (s) => `\x1b[48;5;214;38;5;16m${s}\x1b[49;39m`, // high-contrast amber, independent of the theme
+			// Muted champagne (Gentleman-Sexy's own gold) behind dark text; fixed so it reads the same on any theme.
+			selection: (s) => `\x1b[48;2;224;194;122;38;5;16m${s}\x1b[49;39m`,
 			match: (s) => (t.bg ? call(() => t.bg!("searchMatchBg", s), `\x1b[4m${s}\x1b[24m`) : `\x1b[4m${s}\x1b[24m`),
 			filler: (s) => (t.fg ? call(() => t.fg!("dim", s), s) : s),
 		},
