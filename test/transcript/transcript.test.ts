@@ -206,3 +206,11 @@ test("unknown entries and malformed shapes are skipped without throwing", () => 
   assert.equal(out.meta.length, out.lines.length);
   assert.doesNotThrow(() => buildTranscript(null as never, { width: W }));
 });
+
+test("S17 transcript: user flag per block is true only for user messages", () => {
+  const t = buildTranscript(
+    [msg(user("hi")), msg(assistant([{ type: "text", text: "yo" }])), msg(user("again"), "e2")],
+    { width: W },
+  );
+  assert.deepEqual(t.user, [true, false, true]);
+});

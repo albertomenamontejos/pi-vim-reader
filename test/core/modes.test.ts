@@ -32,10 +32,11 @@ test("S6/S7: searching from visual mode returns to visual and extends the select
 	assert.deepEqual(r.effects, [{ type: "copy", text: "one two\nt" }]);
 });
 
-test("S7: escape in visual leaves visual without close; q in visual does nothing", () => {
-	const r = press(make(lines), "v", "q", "escape");
-	assert.equal(r.state.mode, "normal");
-	assert.deepEqual(r.effects, []);
+test("S7: escape in visual leaves visual without close; q in visual closes the reader", () => {
+	const esc = press(make(lines), "v", "escape");
+	assert.equal(esc.state.mode, "normal");
+	assert.deepEqual(esc.effects, []);
+	for (const keys of [["v", "q"], ["V", "q"]]) assert.deepEqual(press(make(lines), ...keys).effects, [{ type: "close" }]);
 });
 
 test("S7: unknown key after y clears the pending operator without copying", () => {

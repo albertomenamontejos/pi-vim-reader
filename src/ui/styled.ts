@@ -16,6 +16,8 @@ export interface StyledTranscript {
 	styled: string[];
 	/** Chat child index per line; blank-only children (spacers) join the previous message. */
 	meta: number[];
+	/** Per message index: true when the user sent it (alt+j / alt+k). */
+	user: boolean[];
 	/** Index in `chat.children` of the block each line came from (for per-block actions such as ctrl+o). */
 	child: number[];
 }
@@ -118,6 +120,20 @@ export function findChatContainer(tui: unknown): ContainerLike | undefined {
 	return undefined;
 }
 
+/** Pi's UserMessageComponent, recognized by shape (class names do not survive Pi's bundle). */
+function isUserBlock(c: unknown): boolean {
+	if (typeof c !== "object" || c === null) return false;
+	const o = c as Record<string, unknown>;
+	return (
+		typeof o.text === "string" &&
+		"markdownTheme" in o &&
+		!("contentContainer" in o) &&
+		!("message" in o) &&
+		!("skillBlock" in o) &&
+		!("command" in o)
+	);
+}
+
 /** Render every chat child at `width` and derive plain lines and message meta. Throws if a child throws. */
 export function buildStyledTranscript(
 	chat: ContainerLike,
@@ -127,6 +143,7 @@ export function buildStyledTranscript(
 	const lines: string[] = [];
 	const styled: string[] = [];
 	const meta: number[] = [];
+	const user: boolean[] = [];
 	const childOf: number[] = [];
 	let message = -1;
 	const children = [...chat.children];
@@ -149,7 +166,10 @@ export function buildStyledTranscript(
 			}
 		}
 		if (out.length === 0) continue;
-		if (message < 0 || plain.some((p) => p.trim() !== "")) message++;
+		if (message < 0 || plain.some((p) => p.trim() !== "")) {
+			message++;
+			user[message] = isUserBlock(child);
+		}
 		for (let i = 0; i < out.length; i++) {
 			styled.push(out[i]!);
 			lines.push(plain[i]!);
@@ -157,7 +177,7 @@ export function buildStyledTranscript(
 			childOf.push(ci);
 		}
 	}
-	return { lines, styled, meta, child: childOf };
+	return { lines, styled, meta, user, child: childOf };
 }
 
 interface ExpandableLike {

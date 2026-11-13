@@ -149,3 +149,33 @@ test("S5: empty buffer is safe for every motion", () => {
 	const { state } = press(s, "j", "k", "w", "b", "e", "$", "0", "G", "g", "g", "ctrl+d", "ctrl+u", "]", "]");
 	assert.deepEqual(state.cursor, { row: 0, col: 0 });
 });
+
+test("S17: alt+j and alt+k jump between user messages only; alt+k stays put when there is none", () => {
+	const lines = ["u1", "a1", "a1b", "t1", "u2", "a2"];
+	const meta = [0, 1, 1, 2, 3, 4];
+	const userMessages = [true, false, false, true, false];
+	const s = make(lines, { meta, userMessages, row: 1 });
+	assert.deepEqual(press(s, "alt+j").state.cursor, { row: 4, col: 0 });
+	assert.deepEqual(press(s, "alt+k").state.cursor, { row: 0, col: 0 });
+	const last = make(lines, { meta, userMessages, row: 5 });
+	assert.deepEqual(press(last, "alt+j").state.cursor, { row: 5, col: 0 });
+	assert.deepEqual(press(last, "alt+k").state.cursor, { row: 4, col: 0 });
+	const first = make(lines, { meta, userMessages, row: 0 });
+	assert.deepEqual(press(first, "alt+k").state.cursor, { row: 0, col: 0 });
+	const none = make(lines, { meta, row: 2 });
+	assert.deepEqual(press(none, "alt+k").state.cursor, { row: 2, col: 0 });
+	assert.deepEqual(press(s, "]", "]").state.cursor, { row: 3, col: 0 }, "]] still walks every message");
+});
+
+test("S18: alt+j with no later user message goes to the last line; alt+k is unchanged", () => {
+	const lines = ["u1", "a1", "a1b", "u2", "a2", "a2b"];
+	const meta = [0, 1, 1, 2, 3, 3];
+	const userMessages = [true, false, true, false];
+	const onLast = press(make(lines, { meta, userMessages, row: 3 }), "alt+j").state;
+	assert.deepEqual(onLast.cursor, { row: 5, col: 0 });
+	assert.equal(onLast.following, true, "reaching the end follows live output, like G");
+	assert.deepEqual(press(onLast, "alt+j").state.cursor, { row: 5, col: 0 });
+	assert.deepEqual(press(make(lines, { meta, userMessages, row: 0 }), "alt+k").state.cursor, { row: 0, col: 0 });
+	const none = press(make(lines, { meta, row: 1 }), "alt+j").state;
+	assert.deepEqual(none.cursor, { row: 5, col: 0 }, "no user message at all also goes to the end");
+});

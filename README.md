@@ -13,14 +13,14 @@ The view is live: with the cursor on the last line it follows the agent's output
 | Group | Keys |
 |---|---|
 | Move | `h j k l`, `w b e`, `0 $`, `gg G`, `Ctrl+d` / `Ctrl+u` |
-| Messages | `]]` next message, `[[` previous message |
+| Messages | `]]` next message, `[[` previous message; `Alt+j` / `Alt+k` jump to the next / previous message you sent (assistant and tool messages are skipped); `Alt+j` on your last message goes to the end of the page |
 | Search | `/` forward, `?` backward, `n` / `N` repeat (smartcase, wraps around) |
 | Select and copy | `v` charwise, `V` linewise, then `y`; `yy` copies the current line |
 | Code blocks | `yc` copies the fenced code block under the cursor, without the fences |
 | Links and files | `gx` opens the URL under the cursor, `gf` opens the file path (`path` or `path:line`) in `$VISUAL`/`$EDITOR` (for example vim or nvim) at that line, then returns to the reader |
 | Expand | `Ctrl+o` expands or collapses the tool-output block under the cursor (like clicking it); on a line without such a block it toggles all tool output, as Pi's own `Ctrl+o` does |
 | Follow | `G` jumps to the last line and follows live output |
-| Close | `q` (`Esc` only leaves visual mode or search; it never closes, so a double `Esc` cannot abort the running agent) |
+| Close | `q`, also from visual mode (`Esc` only leaves visual mode or search; it never closes, so a double `Esc` cannot abort the running agent) |
 
 Copy uses the system clipboard (wl-copy, xclip or xsel), with an OSC 52 fallback. `gx` (and `gf` when no editor is set) uses `xdg-open` on Linux, `open` on macOS and `start` on Windows.
 

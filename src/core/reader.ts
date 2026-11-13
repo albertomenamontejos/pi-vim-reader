@@ -18,6 +18,8 @@ export interface ReaderState {
 	readonly lines: readonly string[];
 	/** Message index per line; a change between consecutive rows marks a message start. */
 	readonly lineMeta: readonly number[];
+	/** Per message index: true when the user sent it (alt+j / alt+k). */
+	readonly userMessages: readonly boolean[];
 	readonly cursor: Pos;
 	/** Desired column for vertical motions; null means "use cursor.col". */
 	readonly wantCol: number | null;
@@ -41,6 +43,8 @@ export interface HandleResult {
 
 export interface CreateOptions {
 	meta?: readonly number[];
+	/** Per message index: true for messages the user sent. */
+	userMessages?: readonly boolean[];
 	height?: number;
 	/** Start on the last line following live output (default true). */
 	follow?: boolean;
@@ -56,6 +60,7 @@ export function createReader(lines: readonly string[], opts: CreateOptions = {})
 	const base: ReaderState = {
 		lines: [...lines],
 		lineMeta: [...(opts.meta ?? [])],
+		userMessages: [...(opts.userMessages ?? [])],
 		cursor: { row: 0, col: 0 },
 		wantCol: null,
 		top: 0,
@@ -78,8 +83,18 @@ export function createReader(lines: readonly string[], opts: CreateOptions = {})
 }
 
 /** Replace buffer contents (live streaming). Following readers jump to the new last line. */
-export function setLines(state: ReaderState, lines: readonly string[], meta?: readonly number[]): ReaderState {
-	const next: ReaderState = { ...state, lines: [...lines], lineMeta: meta ? [...meta] : state.lineMeta };
+export function setLines(
+	state: ReaderState,
+	lines: readonly string[],
+	meta?: readonly number[],
+	userMessages?: readonly boolean[],
+): ReaderState {
+	const next: ReaderState = {
+		...state,
+		lines: [...lines],
+		lineMeta: meta ? [...meta] : state.lineMeta,
+		userMessages: userMessages ? [...userMessages] : state.userMessages,
+	};
 	if (state.following) return scroll({ ...next, cursor: { row: lastRow(next), col: 0 }, wantCol: null });
 	const row = clamp(state.cursor.row, 0, lastRow(next));
 	const anchor = state.anchor ? clampPos(next, state.anchor) : null;
@@ -150,7 +165,7 @@ export function handleKey(state: ReaderState, key: string): HandleResult {
 			// Esc never closes: a double Esc would otherwise reach Pi and abort the running agent. `q` closes.
 			return { state };
 		case "q":
-			return visual ? { state } : { state, effect: { type: "close" } };
+			return { state, effect: { type: "close" } };
 		case "g":
 		case "]":
 		case "[":
@@ -175,6 +190,9 @@ export function handleKey(state: ReaderState, key: string): HandleResult {
 		case "ctrl+d":
 		case "ctrl+u":
 			return { state: scrollHalf(state, key === "ctrl+d" ? 1 : -1) };
+		case "alt+j":
+		case "alt+k":
+			return { state: moveTo(state, userMessageStart(state, key === "alt+j")) };
 		case "ctrl+o":
 			return visual ? { state } : { state, effect: { type: "toggle-expand", row: state.cursor.row } };
 	}
@@ -361,6 +379,19 @@ function nextMessageStart(state: ReaderState): Pos {
 		if (meta[r] !== meta[r - 1]) return { row: r, col: 0 };
 	}
 	return { row: lastRow(state), col: 0 };
+}
+
+/** Start of the next (or previous) message the user sent. Forward with none left goes to the last line; backward stays put. */
+function userMessageStart(state: ReaderState, forward: boolean): Pos {
+	const meta = state.lineMeta;
+	const isStart = (r: number) => (r === 0 || meta[r] !== meta[r - 1]) && state.userMessages[meta[r]!] === true;
+	const here = Math.min(state.cursor.row, state.lines.length - 1);
+	if (forward) {
+		for (let r = here + 1; r < state.lines.length; r++) if (isStart(r)) return { row: r, col: 0 };
+	} else {
+		for (let r = here - 1; r >= 0; r--) if (isStart(r)) return { row: r, col: 0 };
+	}
+	return forward ? { row: lastRow(state), col: 0 } : state.cursor;
 }
 
 function prevMessageStart(state: ReaderState): Pos {

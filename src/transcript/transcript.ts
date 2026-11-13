@@ -31,6 +31,8 @@ export interface Transcript {
   lines: string[];
   /** `meta[i]` is the 0-based index of the rendered message that line `i` belongs to. */
   meta: number[];
+  /** `user[n]` is true when rendered message `n` was sent by the user. */
+  user: boolean[];
 }
 
 export const TOOL_RESULT_MAX_LINES = 40;
@@ -41,6 +43,7 @@ type Rec = Record<string, unknown>;
 interface Block {
   header: string;
   body: string[];
+  user?: boolean;
 }
 
 const isRec = (v: unknown): v is Rec => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -150,7 +153,7 @@ function messageBlock(m: unknown): Block | undefined {
   if (!isRec(m)) return undefined;
   switch (m.role) {
     case "user":
-      return { header: header("You"), body: partsText(m.content, true) };
+      return { header: header("You"), body: partsText(m.content, true), user: true };
     case "assistant":
       return assistantBlock(m);
     case "toolResult":
@@ -207,6 +210,7 @@ export function buildTranscript(entries: unknown[], opts: TranscriptOptions): Tr
 
   const lines: string[] = [];
   const meta: number[] = [];
+  const user = blocks.map((b) => b.user === true);
   blocks.forEach((block, index) => {
     // Headers are never wrapped (the renderer clips them); body lines are.
     lines.push(block.header);
@@ -220,5 +224,5 @@ export function buildTranscript(entries: unknown[], opts: TranscriptOptions): Tr
     lines.push("");
     meta.push(index);
   });
-  return { lines, meta };
+  return { lines, meta, user };
 }

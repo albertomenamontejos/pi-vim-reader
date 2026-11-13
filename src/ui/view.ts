@@ -60,8 +60,8 @@ export class ReaderView {
 		const start = this.styled !== null ? (this.deps.startRow?.(t.lines.length) ?? null) : null;
 		this.state =
 			start === null
-				? createReader(t.lines, { meta: t.meta, height: this.contentHeight(), follow: true })
-				: createReader(t.lines, { meta: t.meta, height: this.contentHeight(), follow: false, start });
+				? createReader(t.lines, { meta: t.meta, userMessages: t.user, height: this.contentHeight(), follow: true })
+				: createReader(t.lines, { meta: t.meta, userMessages: t.user, height: this.contentHeight(), follow: false, start });
 	}
 
 	get readerState(): ReaderState {
@@ -72,7 +72,7 @@ export class ReaderView {
 		return Math.max(1, this.deps.rows() - 1);
 	}
 
-	private build(streaming?: unknown): { lines: string[]; meta: number[] } {
+	private build(streaming?: unknown): { lines: string[]; meta: number[]; user: boolean[] } {
 		if (this.deps.getStyled) {
 			try {
 				// The chat already shows the streaming message, so `streaming` is not needed here.
@@ -94,8 +94,8 @@ export class ReaderView {
 	private rebuild(streaming: unknown = this.streaming): void {
 		const t = this.build(streaming);
 		// Unchanged content keeps the cursor exactly where it is (setLines re-pins followers to col 0).
-		if (sameLines(this.state.lines, t.lines) && sameLines(this.state.lineMeta, t.meta)) return;
-		this.state = setLines(this.state, t.lines, t.meta);
+		if (sameLines(this.state.lines, t.lines) && sameLines(this.state.lineMeta, t.meta) && sameLines(this.state.userMessages, t.user)) return;
+		this.state = setLines(this.state, t.lines, t.meta, t.user);
 	}
 
 	/** Live session events (S4). */

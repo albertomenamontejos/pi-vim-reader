@@ -18,6 +18,8 @@ const RAW: Record<string, string> = {
 	"\x04": "ctrl+d",
 	"\x15": "ctrl+u",
 	"\x0f": "ctrl+o",
+	"\x1bj": "alt+j",
+	"\x1bk": "alt+k",
 	" ": "space",
 	"\x1b[A": "up",
 	"\x1b[B": "down",

@@ -78,7 +78,7 @@ test("styled: createStyledSource falls back (null) when no container, when empty
 	const broken = fakeTui([{ render: () => { throw new Error("render failed"); } }]).tui;
 	assert.equal(createStyledSource(broken)(40), null);
 	const ok = createStyledSource(fakeTui([comp(["\x1b[2mhi\x1b[22m"])]).tui)(40);
-	assert.deepEqual(ok, { lines: ["hi"], styled: ["\x1b[2mhi\x1b[22m"], meta: [0], child: [0] });
+	assert.deepEqual(ok, { lines: ["hi"], styled: ["\x1b[2mhi\x1b[22m"], meta: [0], user: [false], child: [0] });
 });
 
 test("S4 styled: createStyledSource re-reads chat children on every call (live output)", () => {
@@ -126,4 +126,13 @@ test("S13 styled: child index counts skipped children (non-component, empty rend
 test("S13 styled: toggleBlock rejects a block whose expanded is not a boolean", () => {
 	const chat: any = { children: [{ render: () => [""], expanded: undefined, setExpanded() { throw new Error("must not run"); } }], render: () => [] };
 	assert.equal(toggleBlock(chat, 0), null);
+});
+
+test("S17 styled: user flag per message marks only user-message components", () => {
+	const userChild = { ...comp(["you said", "more"]), text: "you said", markdownTheme: {} };
+	const assistantChild = { ...comp(["answer"]), contentContainer: {}, text: "answer", markdownTheme: {} };
+	const spacer = comp([""]);
+	const t = buildStyledTranscript(container([userChild, spacer, assistantChild, { ...userChild }]), 40);
+	assert.deepEqual(t.meta, [0, 0, 0, 1, 2, 2]);
+	assert.deepEqual(t.user, [true, false, true]);
 });

@@ -55,3 +55,9 @@ test("S13 keys: ctrl+o maps from the raw byte and from pi-tui's parseKey", () =>
 	assert.deepEqual(normalizeKey("\x0f"), ["ctrl+o"]);
 	assert.deepEqual(normalizeKey("\x0f", { parseKey: (d) => (d === "\x0f" ? "ctrl+o" : undefined) }), ["ctrl+o"]);
 });
+
+test("S17 keys: raw fallback maps ESC+j and ESC+k to alt+j and alt+k", () => {
+	assert.deepEqual(normalizeKey("\x1bj"), ["alt+j"]);
+	assert.deepEqual(normalizeKey("\x1bk"), ["alt+k"]);
+	assert.deepEqual(normalizeKey("\x1bj", { parseKey: () => "alt+j" }), ["alt+j"]);
+});
