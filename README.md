@@ -71,6 +71,10 @@ Clone the repository, then add its path to the `packages` array in `~/.gentle-sh
 
 Pi loads `src/extension.ts` through the `pi.extensions` field in `package.json`. No build step and no dependencies are needed: `@earendil-works/pi-tui` and `@earendil-works/pi-coding-agent` are provided by the host at load time.
 
+## Contributing
+
+Issues and pull requests are welcome. Run `npm test` before sending a change; behavior changes should come with a test. Released under the MIT License (see `LICENSE`).
+
 ## Development
 
 ```sh
