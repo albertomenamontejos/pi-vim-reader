@@ -49,6 +49,18 @@ Known limits:
 
 Requires Gentle Shell (or Pi) with extension support.
 
+```sh
+# Gentle Shell
+gentle-shell install npm:pi-vim-reader
+
+# Pi
+pi install npm:pi-vim-reader
+```
+
+Restart Gentle Shell and press `alt+v`.
+
+### From a local clone
+
 Clone the repository, then add its path to the `packages` array in `~/.gentle-shell/agent/settings.json`:
 
 ```json
@@ -56,8 +68,6 @@ Clone the repository, then add its path to the `packages` array in `~/.gentle-sh
   "packages": ["/path/to/pi-vim-reader"]
 }
 ```
-
-Restart Gentle Shell and press `alt+v`.
 
 Pi loads `src/extension.ts` through the `pi.extensions` field in `package.json`. No build step and no dependencies are needed: `@earendil-works/pi-tui` and `@earendil-works/pi-coding-agent` are provided by the host at load time.
 

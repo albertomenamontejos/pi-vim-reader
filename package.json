@@ -5,6 +5,15 @@
 	"type": "module",
 	"private": false,
 	"license": "MIT",
+	"author": "Alberto Mena Montejo",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/albertomenamontejos/pi-vim-reader.git"
+	},
+	"homepage": "https://github.com/albertomenamontejos/pi-vim-reader#readme",
+	"bugs": {
+		"url": "https://github.com/albertomenamontejos/pi-vim-reader/issues"
+	},
 	"keywords": [
 		"pi-package",
 		"gentle-shell-package",
