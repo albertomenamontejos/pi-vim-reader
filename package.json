@@ -1,5 +1,5 @@
 {
-	"name": "gentle-vim-reader",
+	"name": "pi-vim-reader",
 	"version": "0.1.0",
 	"description": "Read-only vim-style reader for the Gentle Shell / Pi conversation: motions, search, visual yank, open links, live follow.",
 	"type": "module",

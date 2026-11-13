@@ -1,4 +1,4 @@
-# gentle-vim-reader
+# pi-vim-reader
 
 A read-only, vim-style reader for the whole Gentle Shell (Pi) conversation.
 
@@ -53,7 +53,7 @@ Clone the repository, then add its path to the `packages` array in `~/.gentle-sh
 
 ```json
 {
-  "packages": ["/path/to/gentle-vim-reader"]
+  "packages": ["/path/to/pi-vim-reader"]
 }
 ```
 
