@@ -75,6 +75,8 @@ Pi loads `src/extension.ts` through the `pi.extensions` field in `package.json`.
 
 Issues and pull requests are welcome. Run `npm test` before sending a change; behavior changes should come with a test. Released under the MIT License (see `LICENSE`).
 
+This is my first open source project, so feedback is very welcome. If something is unclear or broken, please open an issue.
+
 ## Development
 
 ```sh
