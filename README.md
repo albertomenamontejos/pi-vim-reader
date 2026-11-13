@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/albertomenamontejos/pi-vim-reader/main/docs/logo.png" alt="pi-vim-reader logo: a gentleman in a bowler hat and moustache reading a book" width="180">
+</p>
+
 # pi-vim-reader
 
 A read-only, vim-style reader for the whole Gentle Shell (Pi) conversation.
