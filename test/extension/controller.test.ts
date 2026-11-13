@@ -34,9 +34,11 @@ function harness(opts: { rows?: number } = {}) {
 	const entries: unknown[] = [msg(user("hello", 1)), msg(assistant("line one\nline two", 2))];
 	const renders: Array<boolean | undefined> = [];
 	const writes: string[] = [];
-	const tui = {
+	const scrolled: string[] = [];
+	const tui: any = {
 		terminal: { rows: opts.rows ?? 6, columns: 40, write: (s: string) => writes.push(s) },
 		requestRender: (force?: boolean) => renders.push(force),
+		scrollToBottom: () => scrolled.push("bottom"),
 	};
 	let component: any;
 	let customOptions: any;
@@ -90,7 +92,7 @@ function harness(opts: { rows?: number } = {}) {
 	};
 	registerVimReader(pi as any, services);
 	return {
-		shortcuts, emit, handlerCount, entries, renders, writes, tui, ctx, copied, opened, advance,
+		shortcuts, emit, handlerCount, entries, renders, writes, scrolled, tui, ctx, copied, opened, advance,
 		get component() { return component; },
 		get customOptions() { return customOptions; },
 		get resolved() { return resolved; },
@@ -264,4 +266,33 @@ test("S3: does nothing outside the TUI", () => {
 	const h = harness();
 	void h.shortcuts.get("alt+v")!.handler({ ...h.ctx, mode: "rpc" });
 	assert.equal(h.component, undefined);
+});
+
+test("S19: q while following the end scrolls the chat to the bottom before the repaint", async () => {
+	const h = harness();
+	const pending = h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	h.press("q");
+	await pending;
+	assert.deepEqual(h.scrolled, ["bottom"]);
+	assert.ok(h.renders.includes(true), "still repaints");
+});
+
+test("S19: q with the cursor moved away from the end leaves the chat where it is", async () => {
+	const h = harness();
+	const pending = h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	h.press("k", "k", "q");
+	await pending;
+	assert.deepEqual(h.scrolled, []);
+});
+
+test("S19: q never fails when the chat has no scrollToBottom", async () => {
+	const h = harness();
+	delete h.tui.scrollToBottom;
+	const pending = h.shortcuts.get("alt+v")!.handler(h.ctx);
+	h.component.render(40);
+	h.press("q");
+	await pending;
+	assert.ok(h.renders.includes(true));
 });

@@ -21,6 +21,8 @@ export interface TuiLike {
 	/** Suspend and resume the terminal UI around a foreground program (pi-tui). */
 	stop?(): void;
 	start?(): void;
+	/** Pi's chat: jump its viewport to the newest line and follow again. */
+	scrollToBottom?(): void;
 }
 
 export interface ReaderContext {
@@ -101,8 +103,17 @@ export function registerVimReader(pi: PiLike, services: ReaderServices): void {
 					const close = () => {
 						if (closed) return;
 						closed = true;
+						// The reader ended on the last line (following): leave the chat there too, not where it was before opening.
+						const atEnd = view?.readerState.following === true;
 						cleanup();
 						done(undefined);
+						if (atEnd) {
+							try {
+								tui.scrollToBottom?.();
+							} catch {
+								/* best effort */
+							}
+						}
 						// Force a full repaint so the fullscreen overlay leaves no stale cells.
 						try {
 							tui.requestRender(true);
